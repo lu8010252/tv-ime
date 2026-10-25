@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>电视输入</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0 auto;background:#0b1220;color:#eceff4;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;padding:16px;max-width:520px}
+h1{font-size:20px;margin:4px 0 2px}
+.sub{color:#9aa7b8;font-size:13px;margin-bottom:14px}
+textarea{width:100%;height:120px;border-radius:14px;border:2px solid #2d4059;background:#101b2b;color:#eceff4;font-size:18px;padding:12px;resize:none}
+textarea:focus{outline:none;border-color:#4fc3f7}
+.row{display:flex;gap:8px;margin-top:10px}
+button{flex:1;border:0;border-radius:12px;padding:14px 4px;font-size:16px;font-weight:600;background:#1b2a3e;color:#eceff4;border:1px solid #2d4059}
+button:active{background:#284566}
+button.p{background:#4fc3f7;color:#06222f;border:0}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
+.pad button{padding:18px 0;font-size:20px}
+#st{margin-top:12px;min-height:22px;font-size:14px;color:#9aa7b8;word-break:break-all}
+#st.ok{color:#66bb6a}#st.err{color:#ef5350}
+h2{font-size:15px;color:#9aa7b8;margin:20px 0 6px;font-weight:600}
+</style>
+</head>
+<body>
+<h1>📺 电视输入</h1>
+<div class="sub">先在电视上点开要输入的输入框，再在这里打字（支持中文），电视上实时同步；点「发送」确认。</div>
+<textarea id="t" placeholder="在这里输入文字" autofocus></textarea>
+<div class="row">
+<button class="p" onclick="sendText(false)">发送</button>
+<button onclick="sendText(true)">发送并回车</button>
+</div>
+<div class="row">
+<button onclick="ime('del')">⌫ 删一个</button>
+<button onclick="ime('clear')">清空电视输入框</button>
+<button onclick="ime('enter')">⏎ 回车</button>
+</div>
+<h2>方向键（发给电视上当前的应用）</h2>
+<div class="pad">
+<button onclick="key(4)">返回</button><button onclick="key(19)">▲</button><button onclick="key(66)">回车</button>
+<button onclick="key(21)">◀</button><button class="p" onclick="key(23)">确定</button><button onclick="key(22)">▶</button>
+<span></span><button onclick="key(20)">▼</button><span></span>
+</div>
+<div id="st"></div>
+<script>
+var K=new URLSearchParams(location.search).get('k')||'';
+var st=document.getElementById('st'),t=document.getElementById('t');
+function show(ok,m){st.className=ok?'ok':'err';st.textContent=m}
+function call(path,body){
+  if(!K){show(false,'缺少口令：请扫描电视上的二维码打开本页');return Promise.resolve()}
+  var u=path+(path.indexOf('?')<0?'?':'&')+'k='+encodeURIComponent(K);
+  return fetch(u,{method:'POST',body:body==null?'':body}).then(function(r){return r.json()}).then(function(j){
+    show(j.ok,j.ok?(j.msg&&j.msg!=='ok'?j.msg:'已发送'):j.msg);return j
+  }).catch(function(e){show(false,'连不上电视：'+e)})
+}
+var liveTimer=null,liveBusy=false,lastLive=null;
+function live(){
+  if(!K||liveBusy)return;
+  var v=t.value;if(v===lastLive)return;
+  liveBusy=true;lastLive=v;
+  fetch('/api/live?k='+encodeURIComponent(K),{method:'POST',body:v}).then(function(r){return r.json()}).then(function(j){
+    if(!j.ok)show(false,j.msg);else{st.className='ok';st.textContent='实时同步中…'}
+  }).catch(function(){show(false,'连不上电视')}).then(function(){liveBusy=false;if(t.value!==lastLive)live()})
+}
+t.addEventListener('input',function(){clearTimeout(liveTimer);liveTimer=setTimeout(live,150)});
+function sendText(enter){
+  var v=t.value;if(!v){show(false,'先输入文字');return}
+  call('/api/text',v).then(function(j){if(j&&j.ok){t.value='';lastLive=null;if(enter)ime('enter')}})
+}
+function ime(a){call('/api/ime?act='+a)}
+function key(c){call('/api/key?code='+c)}
+</script>
+</body>
+</html>

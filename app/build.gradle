@@ -1,0 +1,50 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.lu.tvime'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.lu.tvime'
+        minSdk 21
+        // 28：Android 14+ 拒绝安装 targetSdk<23 的应用，28 兼容性最好
+        targetSdk 28
+        versionCode 1
+        versionName '1.0'
+    }
+
+    // 固定签名：每次 Actions 编译的 APK 签名一致，可直接覆盖升级
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+dependencies {
+    implementation 'com.google.zxing:core:3.5.3'
+}

@@ -1,0 +1,2 @@
+-keep class com.lu.tvime.ImeService { *; }
+-keep class com.lu.tvime.SettingsActivity { *; }
