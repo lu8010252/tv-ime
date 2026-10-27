@@ -11,6 +11,7 @@
 
 1. 从 Releases 的 `latest` 下载 `tv-ime.apk`，装到电视（U 盘，或 tv-adb 的推送安装）。
 2. 打开「电视输入法」app（设置页），选一种方式启用并设为默认：
+   - **有 root**：直接点「一键设为默认输入法」，会通过 su 自动授权、启用并切换，不用敲命令。
    - **一键**：先授权一次，再点「一键设为默认输入法」：
      ```
      pm grant com.lu.tvime android.permission.WRITE_SECURE_SETTINGS

@@ -131,7 +131,7 @@ public class SettingsActivity extends Activity {
                 }
             }
         }));
-        left.addView(button("一键设为默认输入法（需先授权，见下方）", true, new View.OnClickListener() {
+        left.addView(button("一键设为默认输入法（有 root 自动完成；否则需先授权）", true, new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 setDefault(true);
@@ -233,10 +233,77 @@ public class SettingsActivity extends Activity {
         }
     }
 
+    /** 没有 WRITE_SECURE_SETTINGS 时，尝试用 root（su）直接授权并启用/切换，不用手敲命令。 */
+    private void setDefaultByRoot(final boolean on) {
+        msg.setTextColor(0xFFFFB74D);
+        msg.setText("正在尝试用 root 设置…（如弹出 root 授权请点允许）");
+        final String id = imeId();
+        final String cur = Settings.Secure.getString(getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD);
+        final String prev = Net.prefs(this).getString("prev_ime", "");
+        if (on && cur != null && !id.equals(cur)) {
+            Net.prefs(this).edit().putString("prev_ime", cur).commit();
+        }
+        if (!on && prev.length() == 0) {
+            msg.setTextColor(0xFFEF5350);
+            msg.setText("没有记录原来的输入法，请用 ② 手动切换");
+            return;
+        }
+        final String[] cmds = on
+                ? new String[]{"pm grant " + getPackageName() + " " + SECURE,
+                        "ime enable " + id, "ime set " + id}
+                : new String[]{"ime set " + prev};
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                final String r = runSu(cmds);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        refresh();
+                        String now = Settings.Secure.getString(getContentResolver(),
+                                Settings.Secure.DEFAULT_INPUT_METHOD);
+                        boolean ok = on ? id.equals(now) : (now != null && now.equals(prev));
+                        if (ok) {
+                            msg.setTextColor(0xFF66BB6A);
+                            msg.setText(on ? "✔ 已用 root 设为默认输入法。点一下下面的输入框试试。"
+                                    : "✔ 已还原为 " + prev);
+                        } else {
+                            msg.setTextColor(0xFFEF5350);
+                            msg.setText("root 设置没成功（没有 root，或没允许授权）。输出：\n" + r
+                                    + "\n可改用下方命令，在 root 终端里复制粘贴执行。");
+                        }
+                    }
+                });
+            }
+        }).start();
+    }
+
+    private static String runSu(String[] cmds) {
+        StringBuilder out = new StringBuilder();
+        try {
+            Process p = Runtime.getRuntime().exec("su");
+            java.io.OutputStream os = p.getOutputStream();
+            for (String c : cmds) {
+                os.write((c + " 2>&1\n").getBytes("UTF-8"));
+            }
+            os.write("exit\n".getBytes("UTF-8"));
+            os.flush();
+            java.io.BufferedReader br = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(p.getInputStream(), "UTF-8"));
+            String line;
+            while ((line = br.readLine()) != null) {
+                out.append(line).append('\n');
+            }
+            p.waitFor();
+        } catch (Throwable t) {
+            out.append(t.getMessage());
+        }
+        return out.toString().trim();
+    }
+
     private void setDefault(boolean on) {
         if (!hasSecure()) {
-            msg.setTextColor(0xFFEF5350);
-            msg.setText("还没授权：先执行 pm grant com.lu.tvime " + SECURE);
+            setDefaultByRoot(on);
             return;
         }
         try {
