@@ -11,8 +11,8 @@ android {
         minSdk 21
         // 28：Android 14+ 拒绝安装 targetSdk<23 的应用，28 兼容性最好
         targetSdk 28
-        versionCode 1
-        versionName '1.0'
+        versionCode 2
+        versionName '1.1'
     }
 
     // 固定签名：每次 Actions 编译的 APK 签名一致，可直接覆盖升级
