@@ -21,6 +21,10 @@ final class KbView extends View {
 
     static final int CHAR = 0, SHIFT = 1, DEL = 2, SPACE = 3, ENTER = 4, MODE = 5, HIDE = 6, CLEAR = 7;
 
+    static final int ROW_DP = 50;
+    /** 固定 5 行高，和左侧数字键盘等高；字母页只有 4 行，每行会自动变高，切页不跳高度。 */
+    static final int HEIGHT_DP = ROW_DP * 5;
+
     static final class Key {
         final String label;     // 显示
         final String out;       // 输出（CHAR 用）
@@ -80,10 +84,7 @@ final class KbView extends View {
 
     private void build() {
         List<Key> r;
-        // ---- 字母 ----
-        r = chars("1234567890");
-        r.add(new Key("⌫", null, DEL, 1.6f));
-        letters.add(r);
+        // ---- 字母（数字交给左侧九宫格键盘，这里不再放数字行）----
         r = chars("qwertyuiop");
         r.add(c("-"));
         letters.add(r);
@@ -100,13 +101,11 @@ final class KbView extends View {
         r.add(c("@"));
         r.add(new Key("空格", " ", SPACE, 4.6f));
         r.add(new Key(".com", ".com", CHAR, 1.6f));
+        r.add(new Key("⌫", null, DEL, 1.4f));
         r.add(new Key("清空", null, CLEAR, 1.4f));
         r.add(new Key("收起", null, HIDE, 1.4f));
         letters.add(r);
-        // ---- 符号 ----
-        r = chars("1234567890");
-        r.add(new Key("⌫", null, DEL, 1.6f));
-        symbols.add(r);
+        // ---- 符号（数字同上，交给左侧九宫格）----
         r = chars("!@#$%^&*()");
         r.add(c("-"));
         symbols.add(r);
@@ -122,24 +121,40 @@ final class KbView extends View {
         r.add(c("@"));
         r.add(new Key("空格", " ", SPACE, 4.6f));
         r.add(new Key("http://", "http://", CHAR, 1.8f));
+        r.add(new Key("⌫", null, DEL, 1.4f));
         r.add(new Key("清空", null, CLEAR, 1.4f));
         r.add(new Key("收起", null, HIDE, 1.4f));
         symbols.add(r);
     }
 
     private void selectStart() {
-        selRow = 1;
+        selRow = 0;
         selCol = 0;
     }
 
-    /** 每次进入输入框重置：数字/电话类输入框直接进符号页（有数字行）。 */
-    void reset(boolean numeric) {
+    /** 每次进入输入框重置；数字输入直接走左侧九宫格，这里固定回到字母页。 */
+    void reset() {
         shift = false;
-        symbolMode = numeric;
-        cur = numeric ? symbols : letters;
-        selRow = numeric ? 0 : 1;
+        symbolMode = false;
+        cur = letters;
+        selRow = 0;
         selCol = 0;
         invalidate();
+    }
+
+    // ---------- 跨栏切换焦点（由 ImeService 调用）----------
+
+    int row() {
+        return selRow;
+    }
+
+    void focusRow(int r) {
+        selRow = Math.max(0, Math.min(r, cur.size() - 1));
+        selCol = Math.min(selCol, cur.get(selRow).size() - 1);
+    }
+
+    boolean atLeftEdge() {
+        return selCol == 0;
     }
 
     // ---------- 按键（遥控器）----------
@@ -313,7 +328,7 @@ final class KbView extends View {
     @Override
     protected void onMeasure(int wSpec, int hSpec) {
         int w = MeasureSpec.getSize(wSpec);
-        int rowH = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 50, getResources().getDisplayMetrics());
-        setMeasuredDimension(w, rowH * 5);
+        int rowH = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, ROW_DP, getResources().getDisplayMetrics());
+        setMeasuredDimension(w, rowH * (HEIGHT_DP / ROW_DP));
     }
 }
