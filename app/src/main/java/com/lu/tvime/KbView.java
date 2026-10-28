@@ -90,10 +90,10 @@ final class KbView extends View {
         letters.add(r);
         r = chars("asdfghjkl");
         r.add(c("_"));
-        r.add(new Key("⏎", null, ENTER, 1.6f));
+        r.add(new Key("回车", null, ENTER, 1.6f));
         letters.add(r);
         r = new ArrayList<Key>();
-        r.add(new Key("⇧", null, SHIFT, 1.6f));
+        r.add(new Key("大写", null, SHIFT, 1.6f));
         r.addAll(chars("zxcvbnm,./"));
         letters.add(r);
         r = new ArrayList<Key>();
@@ -101,7 +101,7 @@ final class KbView extends View {
         r.add(c("@"));
         r.add(new Key("空格", " ", SPACE, 4.6f));
         r.add(new Key(".com", ".com", CHAR, 1.6f));
-        r.add(new Key("⌫", null, DEL, 1.4f));
+        r.add(new Key("删除", null, DEL, 1.4f));
         r.add(new Key("清空", null, CLEAR, 1.4f));
         r.add(new Key("收起", null, HIDE, 1.4f));
         letters.add(r);
@@ -111,7 +111,7 @@ final class KbView extends View {
         symbols.add(r);
         r = chars("~+={}[]|\\");
         r.add(c("_"));
-        r.add(new Key("⏎", null, ENTER, 1.6f));
+        r.add(new Key("回车", null, ENTER, 1.6f));
         symbols.add(r);
         r = chars(":;\"'<>?/,.");
         r.add(c("`"));
@@ -121,7 +121,7 @@ final class KbView extends View {
         r.add(c("@"));
         r.add(new Key("空格", " ", SPACE, 4.6f));
         r.add(new Key("http://", "http://", CHAR, 1.8f));
-        r.add(new Key("⌫", null, DEL, 1.4f));
+        r.add(new Key("删除", null, DEL, 1.4f));
         r.add(new Key("清空", null, CLEAR, 1.4f));
         r.add(new Key("收起", null, HIDE, 1.4f));
         symbols.add(r);

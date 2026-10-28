@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 遥控器用的九宫格数字键盘：789 / 456 / 123 / ⌫0⏎，最后一排是「扫码」，
+ * 遥控器用的九宫格数字键盘：789 / 456 / 123 / 删除0回车，最后一排是「扫码」，
  * 用来呼出或收起二维码面板。放在输入法左侧原来二维码占的那一栏。
  */
 final class NumPad extends View {
@@ -84,9 +84,9 @@ final class NumPad extends View {
         rows.add(r);
 
         r = new ArrayList<Key>();
-        r.add(new Key("⌫", null, DEL, 1f));
+        r.add(new Key("删除", null, DEL, 1f));
         r.add(n("0"));
-        r.add(new Key("⏎", null, ENTER, 1f));
+        r.add(new Key("回车", null, ENTER, 1f));
         rows.add(r);
 
         r = new ArrayList<Key>();

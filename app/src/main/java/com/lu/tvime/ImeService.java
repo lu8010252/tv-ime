@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * 电视输入法：
- *  1) 左侧九宫格数字键盘（789/456/123/⌫0⏎），右侧主键盘（英文/符号），遥控器方向键+确定键打字；
+ *  1) 左侧九宫格数字键盘（789/456/123/删除0回车），右侧主键盘（英文/符号），遥控器方向键+确定键打字；
  *  2) 二维码面板默认隐藏，按九宫格底部「扫码」键呼出：手机扫码后在手机上打字（含中文），
  *     电视输入框实时同步，不需要 ADB；按确定/返回键或点「收起」关闭。
  */
@@ -187,7 +187,7 @@ public class ImeService extends InputMethodService {
             return;
         }
         urlView.setText(url.replaceAll("\\?k=.*$", ""));
-        stateView.setText(phoneSeen == 0 ? "等待手机…" : "手机已连接");
+        stateView.setText(phoneSeen == 0 ? "等待手机..." : "手机已连接");
     }
 
     private void toggleQr() {
@@ -399,7 +399,7 @@ public class ImeService extends InputMethodService {
         if ("live".equals(act)) {
             // 手机上边打边同步：作为"组合中的文字"，随时被下一次覆盖，点发送时才定稿
             ic.setComposingText(text, 1);
-            s.setState("手机正在输入…");
+            s.setState("手机正在输入...");
         } else if ("text".equals(act)) {
             ic.commitText(text, 1);
             s.setState("已发送");
