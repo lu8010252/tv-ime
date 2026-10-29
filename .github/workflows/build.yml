@@ -39,6 +39,13 @@ jobs:
       - name: Rename APK
         run: cp app/build/outputs/apk/release/app-release.apk tv-ime.apk
 
+      # 版本号和 build.gradle 里一致：基础版本.构建序号-提交号
+      - name: Compute version
+        id: ver
+        run: |
+          base=$(grep -oP "def versionBase = '\K[^']+" app/build.gradle)
+          echo "v=${base}.${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
       - uses: actions/upload-artifact@v4
         with:
           name: tv-ime-apk
@@ -54,10 +61,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: latest
+          name: tv-ime ${{ steps.ver.outputs.v }}
           target_commitish: ${{ github.sha }}
           make_latest: true
           body: |
+            版本 ${{ steps.ver.outputs.v }}（在电视上打开「电视输入法」设置页，标题下面能看到当前版本）
             构建自提交 ${{ github.sha }}
             下载 tv-ime.apk，用 U 盘或 tv-adb 装到电视，然后在电视上启用并设为默认输入法。
           files: tv-ime.apk

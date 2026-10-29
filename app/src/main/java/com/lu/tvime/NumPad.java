@@ -13,12 +13,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 遥控器用的九宫格数字键盘：789 / 456 / 123 / 删除0回车，最后一排是「扫码」，
- * 用来呼出或收起二维码面板。放在输入法左侧原来二维码占的那一栏。
+ * 遥控器用的九宫格数字键盘：789 / 456 / 123 / 删除0回车，共 4 行，
+ * 行高和右侧主键盘一一对齐（左右跨栏时停在同一行）。
  */
 final class NumPad extends View {
 
-    static final int NUM = 0, DEL = 1, ENTER = 2, SCAN = 3;
+    static final int NUM = 0, DEL = 1, ENTER = 2;
     private static final int COLS = 3;
 
     static final class Key {
@@ -43,8 +43,10 @@ final class NumPad extends View {
     private int selRow = 1;
     private int selCol = 1;
     private Listener listener;
+    /** 遥控器焦点在不在这一栏：不在时不画高亮。一开始焦点在主键盘上。 */
+    private boolean active;
+    private Runnable touchHook;
 
-    private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint txt = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rf = new RectF();
 
@@ -58,6 +60,18 @@ final class NumPad extends View {
 
     void setListener(Listener l) {
         listener = l;
+    }
+
+    void setActive(boolean a) {
+        if (active != a) {
+            active = a;
+            invalidate();
+        }
+    }
+
+    /** 触屏点这一栏时通知外面把焦点切过来。 */
+    void setTouchHook(Runnable r) {
+        touchHook = r;
     }
 
     private static Key n(String s) {
@@ -87,10 +101,6 @@ final class NumPad extends View {
         r.add(new Key("删除", null, DEL, 1f));
         r.add(n("0"));
         r.add(new Key("回车", null, ENTER, 1f));
-        rows.add(r);
-
-        r = new ArrayList<Key>();
-        r.add(new Key("扫码", null, SCAN, COLS));
         rows.add(r);
     }
 
@@ -219,6 +229,9 @@ final class NumPad extends View {
             if (x <= acc) {
                 selRow = r;
                 selCol = i;
+                if (touchHook != null) {
+                    touchHook.run();
+                }
                 press(row.get(i));
                 invalidate();
                 break;
@@ -234,7 +247,7 @@ final class NumPad extends View {
         int n = rows.size();
         float rh = getHeight() / (float) n;
         float cu = getWidth() / (float) COLS;
-        float gap = rh * 0.08f;
+        float gap = rh * 0.07f;
         for (int r = 0; r < n; r++) {
             List<Key> row = rows.get(r);
             float x = 0;
@@ -242,13 +255,11 @@ final class NumPad extends View {
                 Key k = row.get(i);
                 float w = k.span * cu;
                 rf.set(x + gap, r * rh + gap, x + w - gap, (r + 1) * rh - gap);
-                boolean sel = r == selRow && i == selCol;
-                boolean special = k.type != NUM;
-                fill.setColor(sel ? 0xFF4FC3F7 : special ? 0xFF14202F : 0xFF1B2A3E);
-                cv.drawRoundRect(rf, rh * 0.18f, rh * 0.18f, fill);
-                txt.setColor(sel ? 0xFF06222F : 0xFFECEFF4);
+                boolean sel = active && r == selRow && i == selCol;
+                Glass.key(cv, rf, sel ? Glass.SEL : k.type != NUM ? Glass.SPECIAL : Glass.NORMAL);
+                txt.setColor(sel ? Glass.TEXT_SEL : Glass.TEXT);
                 String s = k.label;
-                txt.setTextSize(rh * (s.length() > 2 ? 0.34f : 0.44f));
+                Glass.fit(txt, s, rh * (s.length() > 2 ? 0.34f : 0.44f), rf.width() * 0.88f);
                 float ty = rf.centerY() - (txt.descent() + txt.ascent()) / 2f;
                 cv.drawText(s, rf.centerX(), ty, txt);
                 x += w;

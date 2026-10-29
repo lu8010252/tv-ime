@@ -37,6 +37,14 @@ public class SettingsActivity extends Activity {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, getResources().getDisplayMetrics());
     }
 
+    private String versionName() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) {
+            return "?";
+        }
+    }
+
     private String imeId() {
         return new ComponentName(this, ImeService.class).flattenToShortString();
     }
@@ -111,6 +119,7 @@ public class SettingsActivity extends Activity {
         LinearLayout left = new LinearLayout(this);
         left.setOrientation(LinearLayout.VERTICAL);
         left.addView(text("电视输入法", 28, 0xFFECEFF4, true));
+        left.addView(text("版本 " + versionName(), 13, 0xFF4FC3F7, false));
         left.addView(text("遥控器方向键+确定键打英文/数字；手机扫码打中文，电视实时同步", 14, 0xFF9AA7B8, false));
         status = text("", 16, 0xFFFFB74D, false);
         status.setPadding(0, dp(12), 0, dp(4));

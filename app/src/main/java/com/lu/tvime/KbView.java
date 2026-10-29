@@ -51,8 +51,10 @@ final class KbView extends View {
     private int selRow = 2;
     private int selCol = 0;
     private Listener listener;
+    /** 遥控器焦点在不在这一栏：不在时不画高亮，免得两边同时亮。 */
+    private boolean active = true;
+    private Runnable touchHook;
 
-    private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint txt = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rf = new RectF();
 
@@ -68,6 +70,18 @@ final class KbView extends View {
 
     void setListener(Listener l) {
         listener = l;
+    }
+
+    void setActive(boolean a) {
+        if (active != a) {
+            active = a;
+            invalidate();
+        }
+    }
+
+    /** 触屏点这一栏时通知外面把焦点切过来。 */
+    void setTouchHook(Runnable r) {
+        touchHook = r;
     }
 
     private static Key c(String s) {
@@ -278,6 +292,9 @@ final class KbView extends View {
             if (x <= acc) {
                 selRow = r;
                 selCol = i;
+                if (touchHook != null) {
+                    touchHook.run();
+                }
                 press(row.get(i));
                 invalidate();
                 break;
@@ -293,7 +310,6 @@ final class KbView extends View {
         int rows = cur.size();
         float rh = getHeight() / (float) rows;
         float gap = rh * 0.07f;
-        txt.setTextSize(rh * 0.42f);
         for (int r = 0; r < rows; r++) {
             List<Key> row = cur.get(r);
             float total = 0;
@@ -306,18 +322,16 @@ final class KbView extends View {
                 Key k = row.get(i);
                 float w = k.w * unit;
                 rf.set(x + gap, r * rh + gap, x + w - gap, (r + 1) * rh - gap);
-                boolean sel = r == selRow && i == selCol;
+                boolean sel = active && r == selRow && i == selCol;
                 boolean special = k.type != CHAR && k.type != SPACE;
                 boolean on = k.type == SHIFT && shift;
-                fill.setColor(sel ? 0xFF4FC3F7 : on ? 0xFF2E7D32 : special ? 0xFF14202F : 0xFF1B2A3E);
-                cv.drawRoundRect(rf, rh * 0.18f, rh * 0.18f, fill);
-                txt.setColor(sel ? 0xFF06222F : 0xFFECEFF4);
+                Glass.key(cv, rf, sel ? Glass.SEL : on ? Glass.ON : special ? Glass.SPECIAL : Glass.NORMAL);
+                txt.setColor(sel ? Glass.TEXT_SEL : Glass.TEXT);
                 String s = k.label;
                 if (k.type == CHAR && s.length() == 1 && shift && !symbolMode) {
                     s = s.toUpperCase();
                 }
-                float ts = s.length() > 3 ? rh * 0.30f : rh * 0.42f;
-                txt.setTextSize(ts);
+                Glass.fit(txt, s, s.length() > 3 ? rh * 0.30f : rh * 0.42f, rf.width() * 0.88f);
                 float ty = rf.centerY() - (txt.descent() + txt.ascent()) / 2f;
                 cv.drawText(s, rf.centerX(), ty, txt);
                 x += w;

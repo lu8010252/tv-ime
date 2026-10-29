@@ -1,9 +1,12 @@
 package com.lu.tvime;
 
+import android.graphics.Bitmap;
 import android.inputmethodservice.InputMethodService;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.TypedValue;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
@@ -20,10 +23,10 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 电视输入法：
- *  1) 左侧九宫格数字键盘（789/456/123/删除0回车），右侧主键盘（英文/符号），遥控器方向键+确定键打字；
- *  2) 二维码面板默认隐藏，按九宫格底部「扫码」键呼出：手机扫码后在手机上打字（含中文），
- *     电视输入框实时同步，不需要 ADB；按确定/返回键或点「收起」关闭。
+ * 电视输入法（毛玻璃风格）：
+ *  1) 左侧九宫格数字键盘（789/456/123/删除0回车），中间主键盘（英文/符号），遥控器方向键+确定键打字；
+ *     焦点只在其中一栏亮高亮，左右键走到边上再按一次就跨栏；
+ *  2) 右侧常驻二维码栏：手机扫码后在手机上打字（含中文），电视输入框实时同步，不需要 ADB，也不用移焦点去呼出。
  */
 public class ImeService extends InputMethodService {
 
@@ -32,11 +35,11 @@ public class ImeService extends InputMethodService {
 
     private KbView kb;
     private NumPad numpad;
-    private LinearLayout qrPanel;
     private ImageView qr;
     private TextView urlView;
     private TextView stateView;
     private long phoneSeen;
+    private String qrDrawn;
     /** 遥控器焦点是否在左侧九宫格上（false = 在右侧主键盘）。 */
     private boolean numpadFocus;
 
@@ -64,14 +67,21 @@ public class ImeService extends InputMethodService {
     public View onCreateInputView() {
         int p = dp(10);
         FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(0xF00B1220);
+        root.setBackground(Glass.bar(this));
         root.setPadding(p, p, p, p);
+        if (Build.VERSION.SDK_INT >= 31) {
+            // 安卓 12+ 的电视/盒子：让系统真的把键盘后面的画面模糊掉（不支持就忽略）
+            try {
+                getWindow().getWindow().setBackgroundBlurRadius(dp(28));
+            } catch (Throwable ignored) {
+            }
+        }
 
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
 
-        // 左侧：九宫格数字键盘（原来二维码占的那一栏）
+        // 左侧：九宫格数字键盘
         numpad = new NumPad(this);
         numpad.setListener(new NumPad.Listener() {
             @Override
@@ -79,9 +89,15 @@ public class ImeService extends InputMethodService {
                 onNumPadKey(k);
             }
         });
+        numpad.setTouchHook(new Runnable() {
+            @Override
+            public void run() {
+                setFocus(true);
+            }
+        });
         bar.addView(numpad, new LinearLayout.LayoutParams(dp(190), dp(KbView.HEIGHT_DP)));
 
-        // 右侧：主键盘
+        // 中间：主键盘
         kb = new KbView(this);
         kb.setListener(new KbView.Listener() {
             @Override
@@ -89,69 +105,82 @@ public class ImeService extends InputMethodService {
                 onScreenKey(k, shift);
             }
         });
+        kb.setTouchHook(new Runnable() {
+            @Override
+            public void run() {
+                setFocus(false);
+            }
+        });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         lp.leftMargin = dp(10);
         bar.addView(kb, lp);
 
+        // 右侧：常驻二维码栏（不参与遥控器焦点，所以扫码不用挪光标）
+        int qrW = getResources().getConfiguration().screenWidthDp >= 900 ? 160 : 136;
+        LinearLayout.LayoutParams qlp = new LinearLayout.LayoutParams(dp(qrW), dp(KbView.HEIGHT_DP));
+        qlp.leftMargin = dp(10);
+        bar.addView(buildQrPanel(qrW), qlp);
+
         root.addView(bar, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        // 二维码面板：默认隐藏，按「扫码」键弹出，盖住整个键盘
-        qrPanel = buildQrPanel();
-        qrPanel.setVisibility(View.GONE);
-        root.addView(qrPanel, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(KbView.HEIGHT_DP)));
-
+        setFocus(false);
         refreshLabels();
         return root;
     }
 
-    private LinearLayout buildQrPanel() {
+    private LinearLayout buildQrPanel(int widthDp) {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setGravity(Gravity.CENTER);
-        panel.setBackgroundColor(0xF00B1220);   // 不透明，盖住下面的键盘
-
-        qr = new ImageView(this);
-        qr.setBackgroundColor(0xFFFFFFFF);
-        qr.setPadding(dp(5), dp(5), dp(5), dp(5));
-        panel.addView(qr, new LinearLayout.LayoutParams(dp(140), dp(140)));
+        panel.setBackground(Glass.card(this, 14));
+        panel.setPadding(dp(8), dp(8), dp(8), dp(8));
 
         TextView t = new TextView(this);
-        t.setText("手机扫码输入（含中文）");
-        t.setTextColor(0xFFECEFF4);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        t.setText("手机扫码输入");
+        t.setTextColor(Glass.TEXT);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         t.setGravity(Gravity.CENTER);
-        t.setPadding(0, dp(4), 0, 0);
+        t.setPadding(0, 0, 0, dp(5));
         panel.addView(t);
 
+        int box = widthDp - 24;
+        qr = new ImageView(this);
+        qr.setBackground(Glass.white(this, 8));
+        qr.setPadding(dp(7), dp(7), dp(7), dp(7));
+        qr.setScaleType(ImageView.ScaleType.FIT_XY);
+        panel.addView(qr, new LinearLayout.LayoutParams(dp(box), dp(box)));
+
         urlView = new TextView(this);
-        urlView.setTextColor(0xFF9AA7B8);
-        urlView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+        urlView.setTextColor(0xFFB4C2D6);
+        urlView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9);
         urlView.setGravity(Gravity.CENTER);
-        panel.addView(urlView);
+        urlView.setSingleLine(true);
+        urlView.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+        urlView.setPadding(0, dp(5), 0, 0);
+        panel.addView(urlView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
 
         stateView = new TextView(this);
-        stateView.setTextColor(0xFF66BB6A);
-        stateView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        stateView.setTextColor(0xFF7BD88F);
+        stateView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         stateView.setGravity(Gravity.CENTER);
-        panel.addView(stateView);
-
-        // 触屏电视/投屏可以直接点；遥控器按确定键或返回键也能收起
-        TextView close = new TextView(this);
-        close.setText("收起");
-        close.setTextColor(0xFF9AA7B8);
-        close.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        close.setGravity(Gravity.CENTER);
-        close.setPadding(dp(18), dp(8), dp(18), dp(8));
-        close.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                hideQr();
-            }
-        });
-        panel.addView(close);
+        stateView.setSingleLine(true);
+        panel.addView(stateView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
         return panel;
+    }
+
+    /** 焦点在九宫格（true）还是主键盘（false）；只有焦点所在那一栏画高亮。 */
+    private void setFocus(boolean onNumpad) {
+        numpadFocus = onNumpad;
+        if (numpad != null) {
+            numpad.setActive(onNumpad);
+        }
+        if (kb != null) {
+            kb.setActive(!onNumpad);
+        }
     }
 
     @Override
@@ -170,47 +199,38 @@ public class ImeService extends InputMethodService {
         WebServer.start(this);
         if (!restarting && kb != null) {
             kb.reset();
-            numpadFocus = false;
+            setFocus(false);
         }
         refreshLabels();
+        // 网页服务在后台线程里绑端口，端口可能稍后才定；过一会儿再核对一次二维码
+        MAIN.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                refreshLabels();
+            }
+        }, 1000);
     }
 
-    /** 只更新二维码面板上的文字和状态；二维码图片在真正弹出面板时才画。 */
+    /** 刷新二维码栏：地址变了才重画二维码（同一个地址不重复生成）。 */
     private void refreshLabels() {
-        if (urlView == null) {
+        if (urlView == null || qr == null) {
             return;
         }
         String url = Net.url(this);
         if (url == null) {
             urlView.setText("电视没有联网");
             stateView.setText("");
+            qr.setImageBitmap(null);
+            qrDrawn = null;
             return;
         }
-        urlView.setText(url.replaceAll("\\?k=.*$", ""));
+        urlView.setText(url.replaceAll("\\?k=.*$", "").replace("http://", ""));
         stateView.setText(phoneSeen == 0 ? "等待手机..." : "手机已连接");
-    }
-
-    private void toggleQr() {
-        if (qrPanel == null) {
-            return;
-        }
-        if (qrPanel.getVisibility() == View.VISIBLE) {
-            hideQr();
-        } else {
-            showQr();
-        }
-    }
-
-    private void showQr() {
-        refreshLabels();
-        String url = Net.url(this);
-        qr.setImageBitmap(url == null ? null : Net.qr(url, 360));
-        qrPanel.setVisibility(View.VISIBLE);
-    }
-
-    private void hideQr() {
-        if (qrPanel != null) {
-            qrPanel.setVisibility(View.GONE);
+        if (!url.equals(qrDrawn)) {
+            int px = qr.getLayoutParams().width - qr.getPaddingLeft() - qr.getPaddingRight();
+            Bitmap b = Net.qr(url, Math.max(px, 120));
+            qr.setImageBitmap(b);
+            qrDrawn = b == null ? null : url;
         }
     }
 
@@ -235,31 +255,16 @@ public class ImeService extends InputMethodService {
         if (!isInputViewShown()) {
             return super.onKeyDown(code, ev);
         }
-        // 二维码面板盖着键盘时：确定/返回收起，方向键吞掉，避免在看不见的键盘上盲打
-        if (qrPanel != null && qrPanel.getVisibility() == View.VISIBLE) {
-            if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_DPAD_CENTER
-                    || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_NUMPAD_ENTER) {
-                hideQr();
-                return true;
-            }
-            if (isNav(code)) {
-                return true;
-            }
-        }
         if (kb != null && numpad != null && isNav(code)) {
             // 左右键在「九宫格」和「主键盘」之间换焦点：走到边上再按一次就跨栏
             if (code == KeyEvent.KEYCODE_DPAD_LEFT && !numpadFocus && kb.atLeftEdge()) {
-                numpadFocus = true;
                 numpad.focusRow(kb.row());
-                kb.invalidate();
-                numpad.invalidate();
+                setFocus(true);
                 return true;
             }
             if (code == KeyEvent.KEYCODE_DPAD_RIGHT && numpadFocus && numpad.atRightEdge()) {
-                numpadFocus = false;
                 kb.focusRow(numpad.rowIndex());
-                kb.invalidate();
-                numpad.invalidate();
+                setFocus(false);
                 return true;
             }
             return numpadFocus ? numpad.onRemoteKey(code, ev.getRepeatCount())
@@ -279,10 +284,6 @@ public class ImeService extends InputMethodService {
     // ---------- 左侧数字键盘 ----------
 
     private void onNumPadKey(NumPad.Key k) {
-        if (k.type == NumPad.SCAN) {
-            toggleQr();
-            return;
-        }
         InputConnection ic = getCurrentInputConnection();
         if (ic == null) {
             return;
