@@ -3,7 +3,7 @@ plugins {
 }
 
 // 版本号 = 基础版本.构建序号-提交号（Actions 里自动带上，本地编译显示 0-local）
-def versionBase = '1.3'
+def versionBase = '1.4'
 def runNo = System.getenv('GITHUB_RUN_NUMBER') ?: '0'
 def shortSha = (System.getenv('GITHUB_SHA') ?: 'local').take(7)
 

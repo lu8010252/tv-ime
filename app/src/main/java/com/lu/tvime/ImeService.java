@@ -169,6 +169,17 @@ public class ImeService extends InputMethodService {
         stateView.setSingleLine(true);
         panel.addView(stateView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        // 作者联系方式：二维码下方的灰色小字
+        TextView author = new TextView(this);
+        author.setText("作者微信 17709650717");
+        author.setTextColor(0xFF7D8B9E);
+        author.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9);
+        author.setGravity(Gravity.CENTER);
+        author.setSingleLine(true);
+        author.setPadding(0, dp(2), 0, 0);
+        panel.addView(author, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
         return panel;
     }
 
