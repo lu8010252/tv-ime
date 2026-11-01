@@ -248,23 +248,40 @@ final class NumPad extends View {
         float rh = getHeight() / (float) n;
         float cu = getWidth() / (float) COLS;
         float gap = rh * 0.07f;
-        for (int r = 0; r < n; r++) {
-            List<Key> row = rows.get(r);
-            float x = 0;
-            for (int i = 0; i < row.size(); i++) {
-                Key k = row.get(i);
-                float w = k.span * cu;
-                rf.set(x + gap, r * rh + gap, x + w - gap, (r + 1) * rh - gap);
-                boolean sel = active && r == selRow && i == selCol;
-                Glass.key(cv, rf, sel ? Glass.SEL : k.type != NUM ? Glass.SPECIAL : Glass.NORMAL);
-                txt.setColor(sel ? Glass.TEXT_SEL : Glass.TEXT);
-                String s = k.label;
-                Glass.fit(txt, s, rh * (s.length() > 2 ? 0.34f : 0.44f), rf.width() * 0.88f);
-                float ty = rf.centerY() - (txt.descent() + txt.ascent()) / 2f;
-                cv.drawText(s, rf.centerX(), ty, txt);
-                x += w;
+        // 先画普通键、最后画选中的键，这样焦点键的光晕和放大不会被邻居盖住
+        for (int pass = 0; pass < 2; pass++) {
+            for (int r = 0; r < n; r++) {
+                List<Key> row = rows.get(r);
+                float x = 0;
+                for (int i = 0; i < row.size(); i++) {
+                    Key k = row.get(i);
+                    float w = k.span * cu;
+                    boolean sel = active && r == selRow && i == selCol;
+                    if (sel == (pass == 1)) {
+                        drawKey(cv, k, sel, x + gap, r * rh + gap, x + w - gap, (r + 1) * rh - gap, rh);
+                    }
+                    x += w;
+                }
             }
         }
+    }
+
+    private void drawKey(Canvas cv, Key k, boolean sel, float l, float t, float r, float b, float rh) {
+        rf.set(l, t, r, b);
+        if (sel) {
+            float grow = rh * 0.035f;
+            rf.inset(-grow, -grow);
+        }
+        int state = sel ? Glass.SEL
+                : k.type == ENTER ? Glass.PRIMARY
+                : k.type == DEL ? Glass.SPECIAL : Glass.NORMAL;
+        Glass.key(cv, rf, state);
+        txt.setColor(Glass.textColor(state));
+        txt.setTypeface(k.type == NUM ? Glass.MEDIUM : Typeface.DEFAULT_BOLD);
+        String s = k.label;
+        Glass.fit(txt, s, k.type == NUM ? rh * 0.48f : rh * 0.32f, rf.width() * 0.86f);
+        float ty = rf.centerY() - (txt.descent() + txt.ascent()) / 2f;
+        cv.drawText(s, rf.centerX(), ty, txt);
     }
 
     @Override

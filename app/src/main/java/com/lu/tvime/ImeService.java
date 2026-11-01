@@ -65,7 +65,7 @@ public class ImeService extends InputMethodService {
 
     @Override
     public View onCreateInputView() {
-        int p = dp(10);
+        int p = dp(12);
         FrameLayout root = new FrameLayout(this);
         root.setBackground(Glass.bar(this));
         root.setPadding(p, p, p, p);
@@ -112,13 +112,13 @@ public class ImeService extends InputMethodService {
             }
         });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        lp.leftMargin = dp(10);
+        lp.leftMargin = dp(12);
         bar.addView(kb, lp);
 
         // 右侧：常驻二维码栏（不参与遥控器焦点，所以扫码不用挪光标）
         int qrW = getResources().getConfiguration().screenWidthDp >= 900 ? 160 : 136;
         LinearLayout.LayoutParams qlp = new LinearLayout.LayoutParams(dp(qrW), dp(KbView.HEIGHT_DP));
-        qlp.leftMargin = dp(10);
+        qlp.leftMargin = dp(12);
         bar.addView(buildQrPanel(qrW), qlp);
 
         root.addView(bar, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
@@ -133,51 +133,53 @@ public class ImeService extends InputMethodService {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setGravity(Gravity.CENTER);
-        panel.setBackground(Glass.card(this, 14));
+        panel.setBackground(Glass.card(this, 16));
         panel.setPadding(dp(8), dp(8), dp(8), dp(8));
 
         TextView t = new TextView(this);
         t.setText("手机扫码输入");
         t.setTextColor(Glass.TEXT);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        t.setTypeface(Glass.MEDIUM);
         t.setGravity(Gravity.CENTER);
-        t.setPadding(0, 0, 0, dp(5));
+        t.setPadding(0, 0, 0, dp(6));
         panel.addView(t);
 
-        int box = widthDp - 24;
+        int box = widthDp - 20;
         qr = new ImageView(this);
-        qr.setBackground(Glass.white(this, 8));
+        qr.setBackground(Glass.white(this, 10));
         qr.setPadding(dp(7), dp(7), dp(7), dp(7));
         qr.setScaleType(ImageView.ScaleType.FIT_XY);
         panel.addView(qr, new LinearLayout.LayoutParams(dp(box), dp(box)));
 
         urlView = new TextView(this);
-        urlView.setTextColor(0xFFB4C2D6);
-        urlView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9);
+        urlView.setTextColor(0xFF8FA3BF);
+        urlView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
         urlView.setGravity(Gravity.CENTER);
         urlView.setSingleLine(true);
         urlView.setEllipsize(TextUtils.TruncateAt.MIDDLE);
-        urlView.setPadding(0, dp(5), 0, 0);
+        urlView.setPadding(0, dp(6), 0, 0);
         panel.addView(urlView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
         stateView = new TextView(this);
-        stateView.setTextColor(0xFF7BD88F);
-        stateView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        stateView.setTextColor(Glass.WARN);
+        stateView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        stateView.setTypeface(Glass.MEDIUM);
         stateView.setGravity(Gravity.CENTER);
         stateView.setSingleLine(true);
+        stateView.setPadding(0, dp(2), 0, 0);
         panel.addView(stateView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
         // 作者联系方式：二维码下方的灰色小字
         TextView author = new TextView(this);
         author.setText("作者微信 17709650717");
-        author.setTextColor(0xFF7D8B9E);
+        author.setTextColor(0xFF6F7F96);
         author.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9);
         author.setGravity(Gravity.CENTER);
         author.setSingleLine(true);
-        author.setPadding(0, dp(2), 0, 0);
+        author.setPadding(0, dp(3), 0, 0);
         panel.addView(author, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
         return panel;
@@ -237,6 +239,7 @@ public class ImeService extends InputMethodService {
         }
         urlView.setText(url.replaceAll("\\?k=.*$", "").replace("http://", ""));
         stateView.setText(phoneSeen == 0 ? "等待手机..." : "手机已连接");
+        stateView.setTextColor(phoneSeen == 0 ? Glass.WARN : Glass.OK);
         if (!url.equals(qrDrawn)) {
             int px = qr.getLayoutParams().width - qr.getPaddingLeft() - qr.getPaddingRight();
             Bitmap b = Net.qr(url, Math.max(px, 120));
@@ -249,6 +252,7 @@ public class ImeService extends InputMethodService {
         phoneSeen = System.currentTimeMillis();
         if (stateView != null) {
             stateView.setText(s);
+            stateView.setTextColor(Glass.OK);
         }
     }
 

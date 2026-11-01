@@ -28,7 +28,9 @@ import android.widget.TextView;
 public class SettingsActivity extends Activity {
 
     private static final String SECURE = "android.permission.WRITE_SECURE_SETTINGS";
-    private TextView status;
+    private TextView chipEnabled;
+    private TextView chipDefault;
+    private TextView chipGrant;
     private TextView msg;
     private ImageView qr;
     private TextView urlView;
@@ -57,6 +59,15 @@ public class SettingsActivity extends Activity {
         return checkCallingOrSelfPermission(SECURE);
     }
 
+    // ---- 配色（和键盘保持一致的夜色 + 青色）----
+    private static final int C_TEXT = 0xFFEAF0FA;
+    private static final int C_DIM = 0xFF93A3BC;
+    private static final int C_ACCENT = 0xFF5CC8FF;
+    private static final int C_OK = 0xFF56D39A;
+    private static final int C_WARN = 0xFFFFC857;
+    private static final int C_CARD = 0xFF16213A;
+    private static final int C_LINE = 0xFF2A3A5C;
+
     private TextView text(String s, int sp, int color, boolean bold) {
         TextView t = new TextView(this);
         t.setText(s);
@@ -68,37 +79,66 @@ public class SettingsActivity extends Activity {
         return t;
     }
 
-    private GradientDrawable rect(int fill, int stroke, int strokeW) {
+    private GradientDrawable rect(int fill, int stroke, int strokeW, int radiusDp) {
         GradientDrawable g = new GradientDrawable();
         g.setColor(fill);
-        g.setCornerRadius(dp(12));
+        g.setCornerRadius(dp(radiusDp));
         if (strokeW > 0) {
             g.setStroke(dp(strokeW), stroke);
         }
         return g;
     }
 
+    /** 状态小胶囊：绿色 = 正常，琥珀色 = 还没做。 */
+    private TextView chip() {
+        TextView t = text("", 14, C_DIM, true);
+        t.setSingleLine(true);
+        t.setPadding(dp(14), dp(6), dp(14), dp(6));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.rightMargin = dp(8);
+        t.setLayoutParams(lp);
+        return t;
+    }
+
+    private void setChip(TextView t, String s, boolean ok) {
+        int c = ok ? C_OK : C_WARN;
+        t.setText((ok ? "✔ " : "• ") + s);
+        t.setTextColor(c);
+        t.setBackground(rect((c & 0x00FFFFFF) | 0x26000000, (c & 0x00FFFFFF) | 0x66000000, 1, 16));
+    }
+
     private Button button(String s, boolean primary, View.OnClickListener l) {
         Button b = new Button(this);
         b.setText(s);
         b.setAllCaps(false);
-        b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+        b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         b.setStateListAnimator(null);
-        b.setPadding(dp(14), dp(12), dp(14), dp(12));
+        b.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+        b.setMinHeight(dp(52));
+        b.setMinimumHeight(dp(52));
+        b.setPadding(dp(18), dp(10), dp(18), dp(10));
         b.setFocusable(true);
         StateListDrawable bg = new StateListDrawable();
-        bg.addState(new int[]{android.R.attr.state_focused}, rect(0xFFB3E5FC, Color.WHITE, 3));
-        bg.addState(new int[]{android.R.attr.state_pressed}, rect(0xFFB3E5FC, Color.WHITE, 3));
-        bg.addState(new int[]{}, primary ? rect(0xFF4FC3F7, 0, 0) : rect(0xFF1B2A3E, 0xFF2D4059, 1));
+        bg.addState(new int[]{android.R.attr.state_focused}, rect(0xFFE3F5FF, Color.WHITE, 3, 14));
+        bg.addState(new int[]{android.R.attr.state_pressed}, rect(0xFFBFE9FF, Color.WHITE, 3, 14));
+        if (primary) {
+            GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                    new int[]{0xFF5CC8FF, 0xFF3C93F0});
+            g.setCornerRadius(dp(14));
+            bg.addState(new int[]{}, g);
+        } else {
+            bg.addState(new int[]{}, rect(C_CARD, C_LINE, 1, 14));
+        }
         b.setBackground(bg);
-        int normal = primary ? 0xFF06222F : 0xFFECEFF4;
+        int normal = primary ? 0xFF04222E : C_TEXT;
         b.setTextColor(new ColorStateList(
                 new int[][]{{android.R.attr.state_focused}, {android.R.attr.state_pressed}, {}},
-                new int[]{0xFF06222F, 0xFF06222F, normal}));
+                new int[]{0xFF06233A, 0xFF06233A, normal}));
         b.setOnClickListener(l);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = dp(8);
+        lp.topMargin = dp(10);
         b.setLayoutParams(lp);
         return b;
     }
@@ -106,24 +146,50 @@ public class SettingsActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
-        getWindow().setStatusBarColor(0xFF0B1220);
+        getWindow().setStatusBarColor(0xFF0A1020);
         WebServer.start(this);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.HORIZONTAL);
-        root.setBackgroundColor(0xFF0B1220);
-        int pad = dp(28);
-        root.setPadding(pad, dp(20), pad, dp(20));
+        root.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{0xFF0A1020, 0xFF131E38}));
+        int pad = dp(32);
+        root.setPadding(pad, dp(24), pad, dp(24));
 
         // 左：说明+操作
         LinearLayout left = new LinearLayout(this);
         left.setOrientation(LinearLayout.VERTICAL);
-        left.addView(text("电视输入法", 28, 0xFFECEFF4, true));
-        left.addView(text("版本 " + versionName(), 13, 0xFF4FC3F7, false));
-        left.addView(text("遥控器方向键+确定键打英文/数字；手机扫码打中文，电视实时同步", 14, 0xFF9AA7B8, false));
-        status = text("", 16, 0xFFFFB74D, false);
-        status.setPadding(0, dp(12), 0, dp(4));
-        left.addView(status);
+
+        LinearLayout head = new LinearLayout(this);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.addView(text("电视输入法", 30, C_TEXT, true));
+        TextView ver = text("版本 " + versionName(), 12, C_ACCENT, true);
+        ver.setPadding(dp(10), dp(3), dp(10), dp(3));
+        ver.setBackground(rect(0x265CC8FF, 0x665CC8FF, 1, 10));
+        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        vlp.leftMargin = dp(12);
+        head.addView(ver, vlp);
+        left.addView(head);
+
+        TextView sub = text("遥控器方向键+确定键打英文/数字；手机扫码打中文，电视实时同步", 14, C_DIM, false);
+        sub.setPadding(0, dp(6), 0, dp(14));
+        left.addView(sub);
+
+        LinearLayout chips = new LinearLayout(this);
+        chips.setOrientation(LinearLayout.HORIZONTAL);
+        chipEnabled = chip();
+        chipDefault = chip();
+        chipGrant = chip();
+        chips.addView(chipEnabled);
+        chips.addView(chipDefault);
+        chips.addView(chipGrant);
+        left.addView(chips);
+
+        TextView step = text("设置步骤", 12, C_DIM, true);
+        step.setPadding(dp(2), dp(18), 0, 0);
+        left.addView(step);
 
         left.addView(button("① 打开系统「输入法设置」（启用本输入法）", false, new View.OnClickListener() {
             @Override
@@ -152,59 +218,81 @@ public class SettingsActivity extends Activity {
                 setDefault(false);
             }
         }));
-        msg = text("", 14, 0xFF9AA7B8, false);
-        msg.setPadding(0, dp(8), 0, 0);
+        msg = text("", 14, C_DIM, false);
+        msg.setPadding(dp(2), dp(10), 0, 0);
         left.addView(msg);
 
         EditText test = new EditText(this);
         test.setHint("在这里试试打字");
-        test.setHintTextColor(0xFF9AA7B8);
-        test.setTextColor(0xFFECEFF4);
+        test.setHintTextColor(C_DIM);
+        test.setTextColor(C_TEXT);
         test.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
         test.setInputType(InputType.TYPE_CLASS_TEXT);
-        test.setBackground(rect(0x66101B2B, 0xFF2D4059, 2));
-        test.setPadding(dp(12), dp(10), dp(12), dp(10));
+        StateListDrawable tbg = new StateListDrawable();
+        tbg.addState(new int[]{android.R.attr.state_focused}, rect(0x55101B2B, C_ACCENT, 2, 14));
+        tbg.addState(new int[]{}, rect(0x55101B2B, C_LINE, 2, 14));
+        test.setBackground(tbg);
+        test.setPadding(dp(16), dp(12), dp(16), dp(12));
         LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        tlp.topMargin = dp(12);
+        tlp.topMargin = dp(14);
         left.addView(test, tlp);
 
         TextView help = text("一次性授权（电脑 ADB，或 tv-adb 的「执行命令」）：\n"
                 + "pm grant com.lu.tvime " + SECURE + "\n"
                 + "授权后点「一键设为默认」即可。没授权也可用 ① ②，或直接执行：\n"
                 + "ime enable " + "com.lu.tvime/.ImeService\n"
-                + "ime set " + "com.lu.tvime/.ImeService", 12, 0xFF9AA7B8, false);
+                + "ime set " + "com.lu.tvime/.ImeService", 12, C_DIM, false);
         help.setTypeface(Typeface.MONOSPACE);
-        help.setPadding(0, dp(12), 0, 0);
+        help.setBackground(rect(0x33000000, C_LINE, 1, 12));
+        help.setPadding(dp(14), dp(12), dp(14), dp(12));
         help.setTextIsSelectable(true);
-        left.addView(help);
+        LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        hlp.topMargin = dp(14);
+        left.addView(help, hlp);
 
         ScrollView sv = new ScrollView(this);
         sv.addView(left);
         root.addView(sv, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
 
-        // 右：二维码
+        // 右：二维码卡片
         LinearLayout right = new LinearLayout(this);
         right.setOrientation(LinearLayout.VERTICAL);
         right.setGravity(Gravity.CENTER_HORIZONTAL);
-        right.setPadding(dp(24), 0, 0, 0);
+        GradientDrawable card = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0x2A9DB4E0, 0x0E9DB4E0});
+        card.setCornerRadius(dp(20));
+        card.setStroke(dp(1), 0x34FFFFFF);
+        right.setBackground(card);
+        right.setPadding(dp(20), dp(20), dp(20), dp(20));
         qr = new ImageView(this);
-        qr.setBackgroundColor(Color.WHITE);
-        qr.setPadding(dp(8), dp(8), dp(8), dp(8));
+        qr.setBackground(rect(Color.WHITE, 0, 0, 14));
+        qr.setPadding(dp(10), dp(10), dp(10), dp(10));
         right.addView(qr, new LinearLayout.LayoutParams(dp(230), dp(230)));
-        right.addView(text("手机扫码打字", 16, 0xFFECEFF4, true));
-        urlView = text("", 11, 0xFF4FC3F7, false);
+        TextView qt = text("手机扫码打字", 17, C_TEXT, true);
+        qt.setPadding(0, dp(14), 0, dp(4));
+        right.addView(qt);
+        urlView = text("", 11, C_ACCENT, false);
         urlView.setGravity(Gravity.CENTER);
         right.addView(urlView, new LinearLayout.LayoutParams(dp(230), ViewGroup.LayoutParams.WRAP_CONTENT));
-        right.addView(button("重置二维码口令", false, new View.OnClickListener() {
+        Button reset = button("重置二维码口令", false, new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Net.resetToken(SettingsActivity.this);
                 refresh();
+                msg.setTextColor(C_DIM);
                 msg.setText("口令已重置，旧二维码作废");
             }
-        }), new LinearLayout.LayoutParams(dp(230), ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(right, new LinearLayout.LayoutParams(dp(290), ViewGroup.LayoutParams.MATCH_PARENT));
+        });
+        reset.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(dp(230), ViewGroup.LayoutParams.WRAP_CONTENT);
+        rlp.topMargin = dp(14);
+        right.addView(reset, rlp);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(dp(290), ViewGroup.LayoutParams.WRAP_CONTENT);
+        clp.leftMargin = dp(24);
+        clp.gravity = Gravity.CENTER_VERTICAL;
+        root.addView(right, clp);
 
         setContentView(root);
     }
@@ -221,9 +309,10 @@ public class SettingsActivity extends Activity {
         String cur = Settings.Secure.getString(getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD);
         boolean en = enabled != null && enabled.contains(id);
         boolean def = id.equals(cur);
-        status.setTextColor(def ? 0xFF66BB6A : 0xFFFFB74D);
-        status.setText((en ? "✔ 已启用" : "✘ 还没启用") + "    " + (def ? "✔ 当前就是默认输入法" : "✘ 还不是默认输入法")
-                + "\n授权状态：" + (hasSecure() ? "✔ 已授权，可一键设置" : "未授权（见下方命令）"));
+        boolean grant = hasSecure();
+        setChip(chipEnabled, en ? "已启用" : "未启用", en);
+        setChip(chipDefault, def ? "默认输入法" : "非默认", def);
+        setChip(chipGrant, grant ? "已授权" : "未授权", grant);
         String url = Net.url(this);
         if (url == null) {
             urlView.setText("电视没有联网");
@@ -244,7 +333,7 @@ public class SettingsActivity extends Activity {
 
     /** 没有 WRITE_SECURE_SETTINGS 时，尝试用 root（su）直接授权并启用/切换，不用手敲命令。 */
     private void setDefaultByRoot(final boolean on) {
-        msg.setTextColor(0xFFFFB74D);
+        msg.setTextColor(C_WARN);
         msg.setText("正在尝试用 root 设置…（如弹出 root 授权请点允许）");
         final String id = imeId();
         final String cur = Settings.Secure.getString(getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD);
@@ -253,7 +342,7 @@ public class SettingsActivity extends Activity {
             Net.prefs(this).edit().putString("prev_ime", cur).commit();
         }
         if (!on && prev.length() == 0) {
-            msg.setTextColor(0xFFEF5350);
+            msg.setTextColor(0xFFFF6B6B);
             msg.setText("没有记录原来的输入法，请用 ② 手动切换");
             return;
         }
@@ -273,11 +362,11 @@ public class SettingsActivity extends Activity {
                                 Settings.Secure.DEFAULT_INPUT_METHOD);
                         boolean ok = on ? id.equals(now) : (now != null && now.equals(prev));
                         if (ok) {
-                            msg.setTextColor(0xFF66BB6A);
+                            msg.setTextColor(C_OK);
                             msg.setText(on ? "✔ 已用 root 设为默认输入法。点一下下面的输入框试试。"
                                     : "✔ 已还原为 " + prev);
                         } else {
-                            msg.setTextColor(0xFFEF5350);
+                            msg.setTextColor(0xFFFF6B6B);
                             msg.setText("root 设置没成功（没有 root，或没允许授权）。输出：\n" + r
                                     + "\n可改用下方命令，在 root 终端里复制粘贴执行。");
                         }
@@ -328,22 +417,22 @@ public class SettingsActivity extends Activity {
                             (enabled == null || enabled.length() == 0) ? id : enabled + ":" + id);
                 }
                 Settings.Secure.putString(getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD, id);
-                msg.setTextColor(0xFF66BB6A);
+                msg.setTextColor(C_OK);
                 msg.setText("✔ 已设为默认输入法。点一下下面的输入框试试。");
             } else {
                 String prev = Net.prefs(this).getString("prev_ime", "");
                 if (prev.length() == 0) {
-                    msg.setTextColor(0xFFEF5350);
+                    msg.setTextColor(0xFFFF6B6B);
                     msg.setText("没有记录原来的输入法，请用 ② 手动切换");
                     return;
                 }
                 Settings.Secure.putString(getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD, prev);
-                msg.setTextColor(0xFF66BB6A);
+                msg.setTextColor(C_OK);
                 msg.setText("✔ 已还原为 " + prev);
             }
             refresh();
         } catch (Exception e) {
-            msg.setTextColor(0xFFEF5350);
+            msg.setTextColor(0xFFFF6B6B);
             msg.setText("设置失败：" + e.getMessage());
         }
     }

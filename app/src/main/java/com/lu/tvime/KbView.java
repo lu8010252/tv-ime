@@ -310,33 +310,51 @@ final class KbView extends View {
         int rows = cur.size();
         float rh = getHeight() / (float) rows;
         float gap = rh * 0.07f;
-        for (int r = 0; r < rows; r++) {
-            List<Key> row = cur.get(r);
-            float total = 0;
-            for (Key k : row) {
-                total += k.w;
-            }
-            float unit = getWidth() / total;
-            float x = 0;
-            for (int i = 0; i < row.size(); i++) {
-                Key k = row.get(i);
-                float w = k.w * unit;
-                rf.set(x + gap, r * rh + gap, x + w - gap, (r + 1) * rh - gap);
-                boolean sel = active && r == selRow && i == selCol;
-                boolean special = k.type != CHAR && k.type != SPACE;
-                boolean on = k.type == SHIFT && shift;
-                Glass.key(cv, rf, sel ? Glass.SEL : on ? Glass.ON : special ? Glass.SPECIAL : Glass.NORMAL);
-                txt.setColor(sel ? Glass.TEXT_SEL : Glass.TEXT);
-                String s = k.label;
-                if (k.type == CHAR && s.length() == 1 && shift && !symbolMode) {
-                    s = s.toUpperCase();
+        // 先画普通键、最后画选中的键，这样焦点键的光晕和放大不会被邻居盖住
+        for (int pass = 0; pass < 2; pass++) {
+            for (int r = 0; r < rows; r++) {
+                List<Key> row = cur.get(r);
+                float total = 0;
+                for (Key k : row) {
+                    total += k.w;
                 }
-                Glass.fit(txt, s, s.length() > 3 ? rh * 0.30f : rh * 0.42f, rf.width() * 0.88f);
-                float ty = rf.centerY() - (txt.descent() + txt.ascent()) / 2f;
-                cv.drawText(s, rf.centerX(), ty, txt);
-                x += w;
+                float unit = getWidth() / total;
+                float x = 0;
+                for (int i = 0; i < row.size(); i++) {
+                    Key k = row.get(i);
+                    float w = k.w * unit;
+                    boolean sel = active && r == selRow && i == selCol;
+                    if (sel == (pass == 1)) {
+                        drawKey(cv, k, sel, x + gap, r * rh + gap, x + w - gap, (r + 1) * rh - gap, rh);
+                    }
+                    x += w;
+                }
             }
         }
+    }
+
+    private void drawKey(Canvas cv, Key k, boolean sel, float l, float t, float r, float b, float rh) {
+        rf.set(l, t, r, b);
+        if (sel) {
+            float grow = rh * 0.035f;
+            rf.inset(-grow, -grow);
+        }
+        boolean special = k.type != CHAR && k.type != SPACE;
+        int state = sel ? Glass.SEL
+                : (k.type == SHIFT && shift) ? Glass.ON
+                : k.type == ENTER ? Glass.PRIMARY
+                : special ? Glass.SPECIAL : Glass.NORMAL;
+        Glass.key(cv, rf, state);
+        txt.setColor(Glass.textColor(state));
+        txt.setTypeface(special ? Typeface.DEFAULT_BOLD : Glass.MEDIUM);
+        String s = k.label;
+        if (k.type == CHAR && s.length() == 1 && shift && !symbolMode) {
+            s = s.toUpperCase();
+        }
+        float size = k.type == CHAR ? (s.length() > 3 ? rh * 0.30f : rh * 0.44f) : rh * 0.32f;
+        Glass.fit(txt, s, size, rf.width() * 0.86f);
+        float ty = rf.centerY() - (txt.descent() + txt.ascent()) / 2f;
+        cv.drawText(s, rf.centerX(), ty, txt);
     }
 
     @Override
